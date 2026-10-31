@@ -8,7 +8,7 @@ $buildDirectory = Join-Path ([IO.Path]::GetTempPath()) ('SilentRegCompiler-' + [
 New-Item -ItemType Directory -Path $buildDirectory | Out-Null
 try {
     $staged = Join-Path $buildDirectory 'SilentReg.exe'
-    & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/out:$staged" /win32manifest:app.manifest /resource:Runner.cs,Runner.cs /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll SilentReg.cs
+    & $compiler /nologo /target:winexe /platform:anycpu /optimize+ "/out:$staged" /win32manifest:app.manifest /win32icon:assets\SilentReg.ico /resource:Runner.cs,Runner.cs /resource:assets\SilentReg.ico,SilentReg.ico /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll SilentReg.cs
     if ($LASTEXITCODE -ne 0) { throw "Compiler exited with code $LASTEXITCODE" }
     # Copy the complete local build; synced drives may reject file renames.
     [IO.File]::Copy($staged, (Join-Path $PSScriptRoot 'SilentReg.exe'), $true)

@@ -8,7 +8,7 @@ New-Item -ItemType Directory -Path $work | Out-Null
 Push-Location -LiteralPath $PSScriptRoot
 try {
     $testExe = Join-Path $work 'ConfirmationTests.exe'
-    & $compiler /nologo /target:exe /main:ConfirmationTests /platform:anycpu "/out:$testExe" /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll SilentReg.cs test-confirmation.cs
+    & $compiler /nologo /target:exe /main:ConfirmationTests /platform:anycpu "/out:$testExe" /win32icon:assets\SilentReg.ico /resource:assets\SilentReg.ico,SilentReg.ico /reference:System.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll /reference:Microsoft.CSharp.dll SilentReg.cs test-confirmation.cs
     if ($LASTEXITCODE -ne 0) { throw 'Confirmation tests did not compile.' }
     & $testExe $work
     if ($LASTEXITCODE -ne 0) { throw 'Confirmation tests failed.' }

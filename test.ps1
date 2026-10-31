@@ -38,6 +38,25 @@ try {
     [IO.File]::WriteAllText($file, $content, [Text.Encoding]::Unicode)
     $before = (Get-FileHash -LiteralPath $file).Hash
     Assert ((Convert-Reg $file $output) -eq 0) 'Converter builds an importer from a UTF-16 registry file.'
+    $iconBytes = [IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'assets\SilentReg.ico'))
+    $converterAssembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($exe))
+    $iconStream = $converterAssembly.GetManifestResourceStream('SilentReg.ico')
+    if ($null -eq $iconStream) { throw 'Converter icon resource is missing.' }
+    $iconReader = [IO.BinaryReader]::new($iconStream)
+    try { $embeddedIcon = $iconReader.ReadBytes([int]$iconStream.Length) }
+    finally { $iconReader.Dispose() }
+    Assert ([Convert]::ToBase64String($embeddedIcon) -ceq [Convert]::ToBase64String($iconBytes)) 'Converter embeds the current Windows icon asset.'
+    $byteEncoding = [Text.Encoding]::GetEncoding(28591)
+    $generatedBinary = $byteEncoding.GetString([IO.File]::ReadAllBytes($output))
+    $allIconFrames = $true
+    $frameCount = [BitConverter]::ToUInt16($iconBytes, 4)
+    for ($frame = 0; $frame -lt $frameCount; $frame++) {
+        $entry = 6 + 16 * $frame
+        $size = [BitConverter]::ToUInt32($iconBytes, $entry + 8)
+        $offset = [BitConverter]::ToUInt32($iconBytes, $entry + 12)
+        if (-not $generatedBinary.Contains($byteEncoding.GetString($iconBytes, [int]$offset, [int]$size))) { $allIconFrames = $false }
+    }
+    Assert ($frameCount -eq 7 -and $allIconFrames) 'Generated importer includes all seven Windows icon sizes.'
     Assert (((Get-FileHash -LiteralPath $file).Hash) -eq $before) 'Conversion leaves the input bytes unchanged.'
     $assembly = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes($output))
     $stream = $assembly.GetManifestResourceStream('payload.reg')

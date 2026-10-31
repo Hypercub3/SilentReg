@@ -113,6 +113,13 @@ internal static class Builder
         {
             string payload = Path.Combine(work, "payload.reg");
             File.WriteAllBytes(payload, bytes);
+            string iconPath = Path.Combine(work, "SilentReg.ico");
+            using (Stream icon = Assembly.GetExecutingAssembly().GetManifestResourceStream("SilentReg.ico"))
+            using (Stream outputIcon = File.Create(iconPath))
+            {
+                if (icon == null) throw new InvalidOperationException("The application icon is missing.");
+                icon.CopyTo(outputIcon);
+            }
             string manifest = Path.Combine(work, "app.manifest");
             File.WriteAllText(manifest,
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?><assembly manifestVersion=\"1.0\" xmlns=\"urn:schemas-microsoft-com:asm.v1\">" +
@@ -128,7 +135,7 @@ internal static class Builder
                 var options = new CompilerParameters();
                 options.GenerateExecutable = true;
                 options.OutputAssembly = staged;
-                options.CompilerOptions = "/target:winexe /platform:anycpu /optimize+ /win32manifest:\"" + manifest + "\"";
+                options.CompilerOptions = "/target:winexe /platform:anycpu /optimize+ /win32manifest:\"" + manifest + "\" /win32icon:\"" + iconPath + "\"";
                 options.ReferencedAssemblies.Add("System.dll");
                 options.EmbeddedResources.Add(payload);
                 CompilerResults result = compiler.CompileAssemblyFromSource(options, source);
@@ -180,6 +187,18 @@ internal static class Builder
                 input.CopyTo(output);
                 output.Flush();
             }
+        }
+    }
+}
+
+internal static class AppArtwork
+{
+    internal static void Apply(Form form)
+    {
+        using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("SilentReg.ico"))
+        {
+            if (stream == null) return;
+            using (var icon = new Icon(stream)) form.Icon = (Icon)icon.Clone();
         }
     }
 }
@@ -238,6 +257,7 @@ internal sealed class CreationConfirmation : Form
     {
         this.preference = preference;
         Text = "Silent importer ready";
+        AppArtwork.Apply(this);
         ClientSize = new Size(600, 310);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -335,6 +355,7 @@ internal sealed class ConverterForm : Form
     internal ConverterForm()
     {
         Text = "SilentReg - Silent registry converter";
+        AppArtwork.Apply(this);
         ClientSize = new Size(650, 400);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

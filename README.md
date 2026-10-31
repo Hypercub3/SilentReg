@@ -52,6 +52,10 @@ $process.ExitCode
 
 Add `--admin` to request elevation when the generated importer runs. CLI mode defaults to no elevation. Use `--view Native`, `--view 32`, or `--view 64`, and `--force` to replace an existing output. `--status` is optional and records build success or an error. The converter returns 0 for successful creation and 1 for failure.
 
+## Application icon
+
+SilentReg uses blue registry cubes with a green checkmark. The icon appears on the converter, its confirmation window, and newly generated importers. `assets/SilentReg.png` is the transparent master image; `assets/SilentReg.ico` contains 16, 24, 32, 48, 64, 128, and 256 pixel versions for Windows. Keep the assets folder with the source when rebuilding. Existing importers retain their previous icon until regenerated.
+
 ## Rebuild
 
 Source is included. From this folder:
@@ -64,13 +68,13 @@ The execution-policy option applies only to this build process. It does not chan
 
 ## Tests
 
-Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\test.ps1` for 12 conversion checks. Add `-ApplyRegistry` for the full 27-check integration suite, including confirmation that successful and failed imports create no adjacent or fallback logs. Integration checks create a disposable GUID-named current-user test key and remove it in a finally block. Administrator importers are compiled and their manifests checked without launching a UAC request. The suite retains generated artifacts in a new `test-output-*` folder for inspection. An import exit code of 0 is Windows' reported result, not independent verification of every requested setting.
+Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\test.ps1` for 14 conversion checks. Add `-ApplyRegistry` for the full 29-check integration suite, including confirmation that successful and failed imports create no adjacent or fallback logs. Integration checks create a disposable GUID-named current-user test key and remove it in a finally block. Administrator importers are compiled and their manifests checked without launching a UAC request. The suite retains generated artifacts in a new `test-output-*` folder for inspection. An import exit code of 0 is Windows' reported result, not independent verification of every requested setting.
 
 Microsoft references: [reg import](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/reg-import), [application execution levels](https://learn.microsoft.com/en-us/windows/win32/sbscs/application-manifests).
 
 File-save regression checks: `powershell -NoProfile -ExecutionPolicy Bypass -File .\test-file-locks.ps1`. These check new and replacement outputs, transient and persistent locks, preservation of an existing locked file, and useful error messages without applying registry changes. All 11 checks passed on the J: working drive after the original rename failure was reproduced there.
 
-Creation-confirmation tests: `powershell -NoProfile -ExecutionPolicy Bypass -File .\test-confirmation.ps1`. All 18 checks passed, including five-second timing, checkbox changes, manual dismissal, saved preferences, and save failures. The tests use invisible test windows and isolated temporary preferences; they do not modify the user's actual settings or registry.
+Creation-confirmation tests: `powershell -NoProfile -ExecutionPolicy Bypass -File .\test-confirmation.ps1`. All 21 checks passed, including both window icons, five-second timing, checkbox changes, manual dismissal, saved preferences, and save failures. The tests use invisible test windows and isolated temporary preferences; they do not modify the user's actual settings or registry.
 
 ## Included files
 
@@ -79,7 +83,10 @@ Creation-confirmation tests: `powershell -NoProfile -ExecutionPolicy Bypass -Fil
 | `SilentReg.exe` | Current converter; reopen after an update. |
 | `SilentReg.cs` | Converter interface, saved confirmation setting, same-folder save default, local compilation, and file-save retries. |
 | `Runner.cs` | Embedded importer source; no dialogs or log files. |
+| `.gitignore` | Excludes generated programs, ZIPs, temporary output, and local settings from Git. |
 | `app.manifest` | Converter runs with the launching user's permissions. |
+| `assets/SilentReg.png` | Transparent master artwork for the application icon. |
+| `assets/SilentReg.ico` | Windows icon used in the converter and generated importers. |
 | `build.ps1` | Rebuilds the converter locally and copies it into this folder. |
 | `test.ps1` | Conversion and optional registry integration tests. |
 | `test-file-locks.ps1` | File-save regression tests. |

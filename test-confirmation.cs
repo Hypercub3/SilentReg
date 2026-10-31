@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 
 internal static class ConfirmationTests
@@ -15,6 +16,14 @@ internal static class ConfirmationTests
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            string expectedIcon;
+            using (Stream resource = Assembly.GetExecutingAssembly().GetManifestResourceStream("SilentReg.ico"))
+            {
+                Check(resource != null, "Confirmation tests embed the current application icon.");
+                using (var icon = new Icon(resource)) expectedIcon = IconSignature(icon);
+            }
+            using (var converter = new ConverterForm())
+                Check(IconSignature(converter.Icon) == expectedIcon, "Converter window uses the current application icon.");
             string path = Path.Combine(args[0], "preferences.ini");
             var preference = new ConfirmationPreference(path);
             Check(!preference.AutoDismiss, "Automatic dismissal defaults to off.");
@@ -23,6 +32,7 @@ internal static class ConfirmationTests
             Check(preference.AutoDismiss, "Enabled preference survives a fresh load.");
             using (var dialog = HiddenDialog(preference))
             {
+                Check(IconSignature(dialog.Icon) == expectedIcon, "Creation confirmation uses the current application icon.");
                 Check(Checkbox(dialog).Checked, "Saved enabled setting is reflected in the checkbox.");
                 double duration = RunDialog(dialog, null);
                 Check(duration >= 4.9 && duration < 7, "Enabled confirmation closes after five seconds.");
@@ -102,6 +112,16 @@ internal static class ConfirmationTests
         if (!condition) throw new Exception(message);
         checks++;
         Console.WriteLine("PASS: " + message);
+    }
+
+    private static string IconSignature(Icon icon)
+    {
+        using (var bitmap = icon.ToBitmap())
+        using (var stream = new MemoryStream())
+        {
+            bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            return Convert.ToBase64String(stream.ToArray());
+        }
     }
 
     private static CheckBox Checkbox(CreationConfirmation dialog)
