@@ -1,0 +1,47 @@
+SilentReg validation - October 30, 2026
+
+Current behavior
+- Save dialog defaults to the input registry file's folder.
+- Compiler output is staged locally and copied to the chosen destination.
+- Temporary file-sharing violations receive bounded retries.
+- Generated importers create no adjacent or per-user fallback logs.
+- Import success or failure is available through the process exit code.
+- Windows administrator approval is still required when requesting elevation.
+- The creation confirmation has a persistent, initially off, five-second
+  automatic-dismissal checkbox. Unchecking it cancels the countdown.
+
+27 conversion and integration checks passed for the importer source:
+- 12 conversion checks: formats, byte preservation, standalone resources,
+  administrator manifests, registry views, overwrite protection, input validation.
+- 15 integration checks: standalone execution, string/DWORD/binary imports,
+  value/subkey deletions, legacy format, damaged-payload errors, and no logs
+  on either success or failure.
+- Integration changes were confined to disposable GUID-named HKCU test keys.
+- The test keys were removed afterward.
+- Administrator-requesting importers were inspected, not launched.
+
+11 file-save regression checks passed on J:
+- New output and overwrite both succeed in the working drive.
+- Refused overwrite preserves existing bytes.
+- Transient destination locks recover after release.
+- Persistent locks fail within bounded retries and preserve existing bytes.
+- Failure messages identify the destination and explain how to recover.
+- The original registry file stays unchanged.
+- No staged executable is created in the destination folder.
+
+Release refresh
+- Converter rebuilt from the current source and embedded Runner.cs.
+- Preview regenerated from the updated converter interface.
+- The 12 conversion checks were rerun against the refreshed converter.
+- The 11 save checks were rerun on J: using the refreshed converter.
+- ZIP entries verified byte for byte against the files in the working folder.
+- Existing .silent.exe files created outside this project must be regenerated
+  with the current converter to adopt its no-log behavior.
+
+Creation confirmation update
+- 18 confirmation tests passed: saved on/off preferences, five-second closure,
+  enabling during a prompt, cancelling a countdown, manual OK, and save errors.
+- Preferences were tested in isolated temporary files; actual user settings
+  and registry values were not changed by these tests.
+- The converter was rebuilt and all 12 conversion checks passed again.
+- The new confirmation preview was rendered for visual inspection.

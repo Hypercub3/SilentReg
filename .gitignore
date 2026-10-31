@@ -1,0 +1,27 @@
+# Generated applications and distribution archives
+/SilentReg.exe
+/SilentReg.updated.exe
+/SilentReg.previous-*.exe
+/*.zip
+/bin/
+/obj/
+
+# Temporary build/test artifacts and local preferences
+/test-output-*/
+/.SilentReg-*.exe
+/preview-preferences.ini
+/preferences.ini
+*.log
+
+# Local environment and private signing keys
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.snk
+
+# Local Visual Studio state
+/.vs/
+*.user
+*.suo
