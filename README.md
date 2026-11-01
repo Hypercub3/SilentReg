@@ -15,7 +15,7 @@ Conversion does not import anything. The generated EXE contains the original fil
 
 ## Creation confirmation setting
 
-The **Silent importer ready** confirmation includes a checkbox labeled **dismiss prompt after 5 seconds**. Checking it saves the setting and starts a five-second countdown for the current confirmation. Future creation confirmations open with the checkbox checked and close automatically after five seconds. Unchecking it stops the countdown and saves automatic dismissal as off. **OK** always closes the confirmation immediately.
+The **Silent importer ready** confirmation includes a checkbox on the last line labeled **dismiss prompt after 5 seconds**. Checking it saves the setting and starts a five-second countdown for the current confirmation. Future creation confirmations open with the checkbox checked and close automatically after five seconds. Unchecking it stops the countdown and saves automatic dismissal as off. **OK** always closes the confirmation immediately.
 
 The setting starts off and is saved for the current Windows user in `%LOCALAPPDATA%\SilentReg\preferences.ini`, so it survives reopening the converter. If the preference cannot be saved, the dialog explains that it applies only to the current session. This setting affects only the converter's successful-creation confirmation. Creation errors still require acknowledgement, and generated importers continue to create no dialogs or log files.
 
@@ -54,7 +54,7 @@ Add `--admin` to request elevation when the generated importer runs. CLI mode de
 
 ## Application icon
 
-SilentReg uses blue registry cubes with a green checkmark. The icon appears on the converter, its confirmation window, and newly generated importers. `assets/SilentReg.png` is the transparent master image; `assets/SilentReg.ico` contains 16, 24, 32, 48, 64, 128, and 256 pixel versions for Windows. Keep the assets folder with the source when rebuilding. Existing importers retain their previous icon until regenerated.
+SilentReg uses blue registry cubes with a green checkmark. The built-in icon appears on the converter and its confirmation window. New importers use your selected output icon. `assets/SilentReg.png` is the transparent master image; `assets/SilentReg.ico` contains 16, 24, 32, 48, 64, 128, and 256 pixel versions for Windows. Keep the assets folder with the source when rebuilding. Existing importers retain their previous icon until regenerated.
 
 ## Rebuild
 
@@ -97,3 +97,15 @@ Creation-confirmation tests: `powershell -NoProfile -ExecutionPolicy Bypass -Fil
 | `VALIDATION.txt` | Validation results for the current behavior. |
 | `README.md` | Instructions and limitations. |
 | `SilentReg.zip` | Distribution of the files above, excluding the ZIP itself. |
+
+## Output icon setting
+
+Select **Built-in**, **Custom**, or **None** in the Output icon field. Use **Icon...** to browse for a Windows .ico file, or drop one anywhere on the converter, including its input fields. Dropping a .reg file still selects the registry input. **None** produces a generic executable icon. The converter itself keeps its own icon.
+
+The GUI icon selection is saved per Windows user in %LOCALAPPDATA%\SilentReg\icon.ini. The custom icon data is cached in that setting, so moving or deleting the original icon does not break subsequent sessions. Invalid icons are rejected. If settings cannot be saved, the status line says the choice applies only to this session. Command-line conversion continues to use the built-in icon by default. Existing importers must be regenerated to change their icons.
+
+Run powershell -NoProfile -ExecutionPolicy Bypass -File .\test-icons.ps1 for 12 icon-selection checks, including persistence, generic/custom compilation, drag-and-drop, and invalid-file handling. No registry imports are performed.
+
+The Icon... picker starts in the saved custom icon's folder when that folder still exists, including after restarting the program or selecting an icon by drag-and-drop.
+
+The icon path field scrolls to the filename after a selection so different icons in a long shared folder path can be distinguished.

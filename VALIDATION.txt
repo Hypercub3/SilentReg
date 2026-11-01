@@ -39,3 +39,9 @@ Release verification
   test output, and the dated backup archive are excluded.
 - Existing importers must be regenerated to adopt the current icon and no-log
   behavior. Windows approval for administrator access still applies.
+
+Output icon selection update: 12 new icon checks and 14 existing conversion checks passed. Custom icon data is cached across sessions; generic output compiles without an icon selection. Dragging a valid ICO selects and saves Custom mode. No registry changes were applied by these new checks.
+
+2026-10-31: Icon picker starts in the saved icon directory when available. Build succeeded; all 12 existing icon checks passed. No registry changes applied.
+
+2026-10-31: Added regression checks for replacing an already selected custom icon and persisting the replacement. All 14 icon checks passed. Filename visibility improved; reported picker issue has not been reproduced.

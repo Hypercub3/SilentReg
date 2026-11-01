@@ -92,7 +92,7 @@ internal static class Builder
         return false;
     }
 
-    internal static void Build(string input, string output, bool admin, string view, bool overwrite)
+    internal static void Build(string input, string output, bool admin, string view, bool overwrite, byte[] customIcon = null, bool defaultIcon = true)
     {
         byte[] bytes = ReadPayload(input);
         if (String.IsNullOrWhiteSpace(output)) throw new ArgumentException("Choose an output .exe path.");
@@ -114,12 +114,14 @@ internal static class Builder
             string payload = Path.Combine(work, "payload.reg");
             File.WriteAllBytes(payload, bytes);
             string iconPath = Path.Combine(work, "SilentReg.ico");
+            if (defaultIcon)
             using (Stream icon = Assembly.GetExecutingAssembly().GetManifestResourceStream("SilentReg.ico"))
             using (Stream outputIcon = File.Create(iconPath))
             {
                 if (icon == null) throw new InvalidOperationException("The application icon is missing.");
                 icon.CopyTo(outputIcon);
             }
+            if (!defaultIcon && customIcon != null) File.WriteAllBytes(iconPath, customIcon);
             string manifest = Path.Combine(work, "app.manifest");
             File.WriteAllText(manifest,
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?><assembly manifestVersion=\"1.0\" xmlns=\"urn:schemas-microsoft-com:asm.v1\">" +
@@ -135,7 +137,8 @@ internal static class Builder
                 var options = new CompilerParameters();
                 options.GenerateExecutable = true;
                 options.OutputAssembly = staged;
-                options.CompilerOptions = "/target:winexe /platform:anycpu /optimize+ /win32manifest:\"" + manifest + "\" /win32icon:\"" + iconPath + "\"";
+                options.CompilerOptions = "/target:winexe /platform:anycpu /optimize+ /win32manifest:\"" + manifest + "\"";
+                if (File.Exists(iconPath)) options.CompilerOptions += " /win32icon:\"" + iconPath + "\"";
                 options.ReferencedAssemblies.Add("System.dll");
                 options.EmbeddedResources.Add(payload);
                 CompilerResults result = compiler.CompileAssemblyFromSource(options, source);
@@ -279,7 +282,7 @@ internal sealed class CreationConfirmation : Form
 
         autoDismiss.Name = "AutoDismiss";
         autoDismiss.Text = "dismiss prompt after 5 seconds";
-        autoDismiss.SetBounds(24, 160, 552, 28);
+        autoDismiss.SetBounds(24, 270, 430, 28);
         autoDismiss.Checked = preference.AutoDismiss;
         autoDismiss.CheckedChanged += delegate
         {
@@ -291,13 +294,13 @@ internal sealed class CreationConfirmation : Form
         Controls.Add(autoDismiss);
         preferenceStatus.Name = "PreferenceStatus";
         preferenceStatus.Text = "Your selection is remembered for future confirmations.";
-        preferenceStatus.SetBounds(24, 194, 552, 24);
+        preferenceStatus.SetBounds(24, 164, 552, 24);
         Controls.Add(preferenceStatus);
         countdownStatus.Name = "CountdownStatus";
-        countdownStatus.SetBounds(24, 222, 552, 24);
+        countdownStatus.SetBounds(24, 198, 552, 24);
         Controls.Add(countdownStatus);
         var ok = new Button { Name = "Confirm", Text = "OK", DialogResult = DialogResult.OK };
-        ok.SetBounds(476, 260, 100, 34);
+        ok.SetBounds(476, 226, 100, 34);
         Controls.Add(ok);
         AcceptButton = ok;
         CancelButton = ok;
@@ -343,6 +346,63 @@ internal sealed class CreationConfirmation : Form
     }
 }
 
+internal sealed class IconPreference
+{
+    private readonly string path;
+    internal string Mode = "Built-in";
+    internal string CustomPath = "";
+    internal byte[] CustomBytes;
+
+    internal IconPreference(string path)
+    {
+        this.path = path;
+        try
+        {
+            string[] lines = File.ReadAllLines(path);
+            if (lines.Length != 3) return;
+            if (lines[0] != "Built-in" && lines[0] != "Custom" && lines[0] != "None") return;
+            string customPath = Encoding.UTF8.GetString(Convert.FromBase64String(lines[1]));
+            byte[] bytes = Convert.FromBase64String(lines[2]);
+            if (bytes.Length > 0) Validate(bytes);
+            if (lines[0] == "Custom" && bytes.Length == 0) return;
+            Mode = lines[0]; CustomPath = customPath; CustomBytes = bytes.Length == 0 ? null : bytes;
+        }
+        catch (Exception) { /* A missing or invalid setting uses the built-in icon. */ }
+    }
+
+    internal static IconPreference ForCurrentUser()
+    {
+        return new IconPreference(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SilentReg", "icon.ini"));
+    }
+
+    private static void Validate(byte[] bytes)
+    {
+        using (var stream = new MemoryStream(bytes))
+        using (var icon = new Icon(stream)) { if (icon.Width <= 0) throw new ArgumentException("Invalid icon file."); }
+    }
+
+    internal void SelectCustom(string file)
+    {
+        if (!Path.GetExtension(file).Equals(".ico", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Choose a Windows .ico file.");
+        byte[] bytes = File.ReadAllBytes(file);
+        Validate(bytes);
+        CustomBytes = bytes; CustomPath = Path.GetFullPath(file); Mode = "Custom";
+    }
+
+    internal bool Save()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllLines(path, new string[] { Mode, Convert.ToBase64String(Encoding.UTF8.GetBytes(CustomPath)),
+                Convert.ToBase64String(CustomBytes ?? new byte[0]) }, new UTF8Encoding(false));
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+}
+
 internal sealed class ConverterForm : Form
 {
     private readonly TextBox input = new TextBox();
@@ -351,12 +411,20 @@ internal sealed class ConverterForm : Form
     private readonly Label status = new Label();
     private readonly Button create = new Button();
     private readonly ConfirmationPreference confirmationPreference = ConfirmationPreference.ForCurrentUser();
+    private readonly IconPreference iconPreference;
+    private readonly ComboBox iconMode = new ComboBox();
+    private readonly TextBox iconPath = new TextBox();
+    private readonly Button iconBrowse = new Button();
+    private bool updatingIcon;
 
-    internal ConverterForm()
+    internal ConverterForm() : this(IconPreference.ForCurrentUser()) { }
+
+    internal ConverterForm(IconPreference preference)
     {
+        iconPreference = preference;
         Text = "SilentReg - Silent registry converter";
         AppArtwork.Apply(this);
-        ClientSize = new Size(650, 400);
+        ClientSize = new Size(650, 490);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -387,24 +455,107 @@ internal sealed class ConverterForm : Form
         view.SetBounds(145, 191, 110, 30);
         Controls.Add(view);
         AddLabel("Native uses the operating system's default view.", 270, 195, 360, 28, 9F);
-        AddLabel("The generated .exe applies changes without dialogs or log files.\nAdministrator access still requires Windows approval.", 24, 237, 600, 52, 10F);
+        AddLabel("Output icon:", 24, 237, 110, 28, 10F);
+        iconMode.Name = "IconMode";
+        iconMode.DropDownStyle = ComboBoxStyle.DropDownList;
+        iconMode.Items.AddRange(new object[] { "Built-in", "Custom", "None" });
+        iconMode.SetBounds(145, 233, 160, 30);
+        iconMode.SelectedItem = iconPreference.Mode;
+        Controls.Add(iconMode);
+        AddLabel("None uses the generic executable icon.", 318, 237, 310, 28, 9F);
+        iconPath.Name = "IconPath";
+        iconPath.ReadOnly = true;
+        iconPath.SetBounds(24, 276, 490, 30);
+        Controls.Add(iconPath);
+        iconBrowse.Text = "Icon...";
+        iconBrowse.SetBounds(526, 274, 100, 32);
+        iconBrowse.Click += delegate { BrowseIcon(); };
+        Controls.Add(iconBrowse);
+        iconMode.SelectedIndexChanged += delegate
+        {
+            if (updatingIcon) return;
+            if (iconMode.SelectedItem.ToString() == "Custom" && iconPreference.CustomBytes == null)
+            {
+                if (!BrowseIcon()) RefreshIconFields();
+                return;
+            }
+            iconPreference.Mode = iconMode.SelectedItem.ToString();
+            SaveIconSetting();
+        };
+        RefreshIconFields();
+        AddLabel("Choose an .ico file above or drop it anywhere in this window.", 24, 314, 600, 26, 9F);
+        AddLabel("The generated .exe applies changes without dialogs or log files.\nAdministrator access still requires Windows approval.", 24, 350, 600, 52, 10F);
         create.Text = "Create silent .exe...";
-        create.SetBounds(24, 309, 205, 38);
+        create.SetBounds(24, 410, 205, 38);
         create.Enabled = false;
         create.Click += CreateOutput;
         Controls.Add(create);
-        status.SetBounds(24, 359, 602, 30);
+        status.SetBounds(24, 457, 602, 26);
         status.AutoEllipsis = true;
         Controls.Add(status);
-        DragEnter += delegate(object sender, DragEventArgs e)
+        DragEventHandler onDragEnter = delegate(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy;
         };
-        DragDrop += delegate(object sender, DragEventArgs e)
+        DragEventHandler onDragDrop = delegate(object sender, DragEventArgs e)
         {
             var files = e.Data.GetData(DataFormats.FileDrop) as string[];
-            if (files != null && files.Length == 1) SelectInput(files[0]);
+            if (files != null && files.Length == 1)
+            {
+                if (Path.GetExtension(files[0]).Equals(".ico", StringComparison.OrdinalIgnoreCase)) SelectIcon(files[0]);
+                else SelectInput(files[0]);
+            }
         };
+        DragEnter += onDragEnter;
+        DragDrop += onDragDrop;
+        foreach (Control control in Controls)
+        {
+            control.AllowDrop = true;
+            control.DragEnter += onDragEnter;
+            control.DragDrop += onDragDrop;
+        }
+    }
+
+    private bool BrowseIcon()
+    {
+        using (var dialog = new OpenFileDialog { Filter = "Windows icons (*.ico)|*.ico", Title = "Choose output icon" })
+        {
+            // The saved path also covers icons selected by drag-and-drop or in an earlier session.
+            try
+            {
+                string directory = Path.GetDirectoryName(iconPreference.CustomPath);
+                if (Directory.Exists(directory)) dialog.InitialDirectory = directory;
+            }
+            catch (ArgumentException) { /* Fall back to the normal picker location. */ }
+            catch (NotSupportedException) { /* Ignore an unavailable saved path. */ }
+            return dialog.ShowDialog(this) == DialogResult.OK && SelectIcon(dialog.FileName);
+        }
+    }
+
+    private bool SelectIcon(string file)
+    {
+        try { iconPreference.SelectCustom(file); SaveIconSetting(); return true; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Cannot use this icon", MessageBoxButtons.OK, MessageBoxIcon.Error); return false; }
+    }
+
+    private void RefreshIconFields()
+    {
+        updatingIcon = true;
+        iconMode.SelectedItem = iconPreference.Mode;
+        iconPath.Text = iconPreference.Mode == "Custom" ? iconPreference.CustomPath :
+            (iconPreference.Mode == "None" ? "Generic executable icon" : "SilentReg built-in icon");
+        // Keep the filename visible when icons share a long directory prefix.
+        iconPath.SelectionStart = iconPath.TextLength;
+        iconPath.SelectionLength = 0;
+        iconPath.ScrollToCaret();
+        updatingIcon = false;
+    }
+
+    private void SaveIconSetting()
+    {
+        bool saved = iconPreference.Save();
+        RefreshIconFields();
+        status.Text = saved ? "Icon setting saved for future sessions." : "Could not save icon setting; it applies to this session only.";
     }
 
     private void AddLabel(string text, int x, int y, int width, int height, float size)
@@ -439,7 +590,8 @@ internal sealed class ConverterForm : Form
             status.Refresh();
             try
             {
-                Builder.Build(input.Text, dialog.FileName, admin.Checked, view.SelectedItem.ToString(), true);
+                Builder.Build(input.Text, dialog.FileName, admin.Checked, view.SelectedItem.ToString(), true,
+                    iconPreference.Mode == "Custom" ? iconPreference.CustomBytes : null, iconPreference.Mode == "Built-in");
                 status.Text = "Created: " + dialog.FileName;
                 UseWaitCursor = false;
                 using (var confirmation = new CreationConfirmation(dialog.FileName, confirmationPreference))
